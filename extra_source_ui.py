@@ -31,6 +31,11 @@ DEFINITIONS = {
         "https://rapidapi.com/opencritic-opencritic-default/api/opencritic-api",
         "Subscribe to the OpenCritic API through RapidAPI, then enter your RapidAPI key. Your plan may have request limits or charges; the app never subscribes for you. Fetches average top critic score, percentage recommended, tier and review count. OpenCritic combines platforms; its scores are stored separately from PC Metacritic scores. Only unique exact title matches are accepted.",
     ),
+    "HLTB": (
+        [],
+        "https://howlongtobeat.com/",
+        "No API key is needed. Searches the public HowLongToBeat site by title and saves main story, main + extras, completionist and all-styles lengths in hours, plus the game page link. Only a unique exact title match on a PC-listed entry is accepted; editions, DLCs and alternate titles are not guessed. HowLongToBeat lengths are community estimates, not a measurement of your own playthrough.",
+    ),
 }
 
 

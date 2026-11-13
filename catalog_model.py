@@ -50,6 +50,9 @@ COLUMNS += [("favorite", "Favorite"), ("personal_tags", "Personal tags")]
 COLUMN_HELP = {
     "oc_score": "Average OpenCritic top critic score out of 100, combined across platforms. It is separate from the PC Metacritic score.",
     "oc_recommended": "Percentage of OpenCritic critics recommending the game. This is not an average review score.",
+    "hltb_main": "Community-estimated main story length in hours from HowLongToBeat. It is not a measurement of your own playthrough.",
+    "hltb_status": "Result of the last HowLongToBeat check. A unique exact PC title match is required; editions, DLCs and alternate titles are not guessed. A failed check keeps previously saved values.",
+    "hltb_checked": "When HowLongToBeat was last checked. Successful matches are cached for seven days; unmatched titles for one day.",
     "proton_tier": "Community Linux compatibility rating for the verified Steam app ID. This is not a guarantee for your hardware, launcher or game version.",
     "sgdb_artists": "Artists credited for the chosen SteamGridDB images. Per-image artist profiles and asset IDs are saved in the entry’s source data.",
     "mc_user_score": "User rating out of 10, saved only when the page explicitly identifies PC. This is separate from the critic score out of 100.",
@@ -71,7 +74,7 @@ def display(value, key):
         return "—"
     if isinstance(value,str) and value.casefold()=="unknown":
         return "—"
-    if key in ("oc_score", "oc_recommended", "igdb_rating", "igdb_critic_rating") and isinstance(value, (int, float)):
+    if key in ("oc_score", "oc_recommended", "igdb_rating", "igdb_critic_rating", "hltb_main", "hltb_main_extra", "hltb_completionist", "hltb_all_styles") and isinstance(value, (int, float)):
         return f"{value:.1f}"
     if key == "playtime":
         return f"{value / 60:.1f}"

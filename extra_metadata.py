@@ -21,6 +21,15 @@ from extra_schema import SOURCES
 from request_budgets import request_limit, BudgetExhausted
 from opencritic_quota import Quota, QuotaPaused
 
+HLTB_BASE = "https://howlongtobeat.com"
+# The site rotates its search endpoint path; try the known ones and keep the one that issues tokens.
+HLTB_SEARCH_PATHS = ("/api/s/", "/api/find", "/api/bleed")
+HLTB_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+HLTB_TOKEN_SECONDS = 14 * 60
+HLTB_PAGE_SIZE = 20
+HLTB_MAX_PAGES = 3
+HLTB_HOURS_CAP = 100000
+
 
 def network(url, *, headers=None, data=None, content_type=None, response_headers=None):
     h = {
@@ -145,6 +154,9 @@ class Clients:
         self.limit = 0
         self.request_progress = lambda: None
         self.quota = Quota(options) if getattr(call, "supports_response_headers", False) is True else None
+        self.hltb_auth = None
+        self.hltb_base = None
+        self.hltb_until = 0
 
     def get(self, url, **kwargs):
         if self.cancel.is_set():
@@ -392,6 +404,165 @@ class Clients:
             "oc_reviews": number(detail.get("numReviews")),
             "oc_url": "https://opencritic.com/game/" + str(ident),
         }, {"id": ident, "scope": "Combined platforms; not a PC-only score"}
+
+    @staticmethod
+    def _hltb_headers(auth):
+        # The search token is bound to this exact User-Agent, so init and search must share it.
+        headers = {
+            "User-Agent": HLTB_USER_AGENT,
+            "Referer": HLTB_BASE + "/",
+            "Origin": HLTB_BASE,
+        }
+        if auth:
+            headers["x-auth-token"] = auth["token"]
+            headers["x-hp-key"] = auth["hpKey"]
+            headers["x-hp-val"] = auth["hpVal"]
+        return headers
+
+    def _hltb_token(self):
+        if self.hltb_auth and self.hltb_base and time.monotonic() < self.hltb_until:
+            return self.hltb_auth, self.hltb_base
+        problems = []
+        for base in HLTB_SEARCH_PATHS:
+            url = HLTB_BASE + base.rstrip("/") + "/init?t=" + str(int(time.time() * 1000))
+            try:
+                data = self.get(url, headers=self._hltb_headers(None))
+            except FetchError as exc:
+                problems.append(base + ": " + str(exc))
+                continue
+            token = data.get("token") if isinstance(data, dict) else None
+            key = data.get("hpKey") if isinstance(data, dict) else None
+            value = data.get("hpVal") if isinstance(data, dict) else None
+            if (
+                isinstance(token, str) and token
+                and isinstance(key, str) and key
+                and isinstance(value, str) and value
+            ):
+                self.hltb_auth = {"token": token, "hpKey": key, "hpVal": value}
+                self.hltb_base = base
+                self.hltb_until = time.monotonic() + HLTB_TOKEN_SECONDS
+                return self.hltb_auth, base
+            problems.append(base + ": the token response was incomplete")
+        raise FetchError(
+            "HowLongToBeat did not issue a search token (" + "; ".join(problems) + ")."
+        )
+
+    def _hltb_search_page(self, auth, base, title, page):
+        payload = {
+            "searchType": "games",
+            "searchTerms": title.split(),
+            "searchPage": page,
+            "size": HLTB_PAGE_SIZE,
+            "searchOptions": {
+                "games": {
+                    "userId": 0,
+                    "platform": "",
+                    "sortCategory": "popular",
+                    "rangeCategory": "main",
+                    "rangeTime": {"min": 0, "max": 0},
+                    "gameplay": {
+                        "perspective": "",
+                        "flow": "",
+                        "genre": "",
+                        "difficulty": "",
+                    },
+                    "rangeYear": {"max": "", "min": ""},
+                    "modifier": "",
+                },
+                "users": {"sortCategory": "postcount"},
+                "lists": {"sortCategory": "follows"},
+                "filter": "",
+                "sort": 0,
+                "randomizer": 0,
+            },
+            "useCache": True,
+        }
+        payload[auth["hpKey"]] = auth["hpVal"]
+        return self.get(
+            HLTB_BASE + base,
+            data=json.dumps(payload).encode(),
+            content_type="application/json",
+            headers=self._hltb_headers(auth),
+        )
+
+    def hltb(self, row):
+        auth, base = self._hltb_token()
+        for attempt in range(2):
+            items = []
+            try:
+                page = 1
+                pages = 1
+                while page <= pages and page <= HLTB_MAX_PAGES:
+                    if self.cancel.wait(0.3):
+                        raise Cancelled()
+                    response = self._hltb_search_page(auth, base, row["title"], page)
+                    if not isinstance(response, dict) or not isinstance(
+                        response.get("data"), list
+                    ):
+                        raise ValueError("HowLongToBeat returned an unexpected response.")
+                    items.extend(response["data"])
+                    try:
+                        pages = max(1, int(response.get("pageTotal") or 1))
+                    except (TypeError, ValueError):
+                        pages = 1
+                    page += 1
+                break
+            except FetchError as exc:
+                # An expired or refused token is refreshed once before giving up.
+                if exc.status == 403 and attempt == 0:
+                    self.hltb_auth = None
+                    auth, base = self._hltb_token()
+                    continue
+                raise
+        wanted_type = (
+            "dlc" if str(row.get("type") or "").casefold() == "dlc" else "game"
+        )
+        adapted = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("game_type") or "game").casefold() != wanted_type:
+                continue
+            platforms = item.get("profile_platform")
+            if isinstance(platforms, str) and platforms and "pc" not in platforms.casefold():
+                continue
+            release = item.get("release_world")
+            year = (
+                re.search(r"\d{4}", str(release))
+                if isinstance(release, (str, int, float))
+                else None
+            )
+            adapted.append(
+                {
+                    "name": item.get("game_name"),
+                    "first_release_date": year.group(0) if year else None,
+                    "_raw": item,
+                }
+            )
+        item = exact_match(adapted, row)
+        raw_item = item["_raw"]
+        ident = raw_item.get("game_id")
+        if not (type(ident) is int and ident > 0) and not (
+            isinstance(ident, str) and ident.isdigit() and int(ident) > 0
+        ):
+            raise ValueError("HowLongToBeat returned no valid game ID.")
+        ident = str(ident)
+
+        def hours(key):
+            seconds = number(raw_item.get(key))
+            if seconds is None:
+                return None
+            value = round(seconds / 3600, 2)
+            return value if value <= HLTB_HOURS_CAP else None
+
+        patch = {
+            "hltb_main": hours("comp_main"),
+            "hltb_main_extra": hours("comp_plus"),
+            "hltb_completionist": hours("comp_100"),
+            "hltb_all_styles": hours("comp_all"),
+            "hltb_url": HLTB_BASE + "/game/" + ident,
+        }
+        return patch, {"id": int(ident), "matched_title": row["title"], "scope": "PC entry"}
 
 
 def missing_credentials(source, options):

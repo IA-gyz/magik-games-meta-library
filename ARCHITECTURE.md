@@ -153,9 +153,15 @@ Model reset/sort/filter application, reports, exports, schema initialization and
 
 Optional enrichment (v0.31): `extra_schema.py` owns fields, numeric bounds and
 configuration keys without network/Qt dependencies. `extra_metadata.py` owns
-the four independent adapters and the background enrichment loop. It uses
-per-source retry state in local_state and per-row provenance in
-raw.extra_metadata. `extra_source_ui.py` adds opt-in settings tabs to Sources.
+the independent adapters (IGDB, ProtonDB, SteamGridDB, OpenCritic, HLTB) and the
+background enrichment loop. It uses per-source retry state in local_state and
+per-row provenance in raw.extra_metadata. `extra_source_ui.py` adds opt-in
+settings tabs to Sources. The HLTB adapter needs no credentials: it obtains a
+short-lived search token from howlongtobeat.com (the token is bound to one
+User-Agent, shared by the init and search requests), refreshes it once on a
+403, and converts the site's per-style times from seconds to hours. HLTB
+columns are appended after all existing columns to preserve saved column
+indexes.
 Worker mode `extra` keeps HTTP and SQLite writes off the UI thread. Existing
 account providers, Metacritic scoring, KDE identity and launch behavior are
 unchanged. New fields/columns are appended to preserve saved column indexes.

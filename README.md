@@ -2,6 +2,10 @@
 
 A native Python/Qt catalog for CachyOS and KDE Plasma. Browse account libraries, collect metadata, detect existing installations and launch games through Steam, Heroic or Lutris. The app does not install or uninstall games, configure Wine/Proton, or manage game settings or saves.
 
+## HowLongToBeat completion times (unreleased)
+
+**New optional extra source: HLTB.** Enable it in Sources (no API key needed) and it runs with Get extra game data or Fetch selected details. The app searches the public HowLongToBeat site by title — using the site's token-gated search endpoint with a shared browser User-Agent — and saves main story, main + extras, completionist and all-styles lengths in hours, plus the game page link, as new columns (HLTB main story, HLTB main + extras, HLTB completionist, HLTB all styles, HowLongToBeat page, HLTB last checked, HLTB match status) and in each entry's source data. Only a unique exact title match on a PC-listed entry is accepted; editions, DLCs, console-only entries and same-name re-releases from a different year are not guessed. DLC library entries match DLC entries. A 403 refreshes the search token once; repeated refusals pause the source for a day and keep existing values. Times are community estimates, not measurements of your own playthrough. Results are cached for seven days, unmatched titles for one day. Replace all app files and restart.
+
 ## Date-first refresh, tidier toolbar and screen-safe window (0.42)
 
 **Missing dates come first.** During a refresh, every Steam package mapping already saved in the 30-day cache is applied before any new request, so completed matches always fill in dates even when a later request is rate limited. New package lookups are ordered so licenses without explicit app IDs — the only evidence for those games' dates — are requested first while the request budget lasts. The saved date report now records how many lookups were postponed (`postponed_packages`) and whether the date pass finished (`date_fetch_incomplete`).

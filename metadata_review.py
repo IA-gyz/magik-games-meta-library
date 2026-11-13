@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from extra_schema import SOURCES
 from date_display import friendly_date
 
-MATCH_SOURCES = ("Metacritic", "IGDB", "SteamGridDB", "OpenCritic")
+MATCH_SOURCES = ("Metacritic", "IGDB", "SteamGridDB", "OpenCritic", "HLTB")
 
 
 def selected_keys(view, proxy, model):
@@ -74,7 +74,7 @@ class MatchReview(QDialog):
             self.edits[source] = edit
             form.addRow("Lookup title", edit)
             state = raw.get("metacritic", {}) if source == "Metacritic" else raw.get("extra_metadata", {}).get(source, {})
-            prefix = {"Metacritic": "mc", "OpenCritic": "oc", "SteamGridDB": "sgdb", "IGDB": "igdb"}[source]
+            prefix = {"Metacritic": "mc", "OpenCritic": "oc", "SteamGridDB": "sgdb", "IGDB": "igdb", "HLTB": "hltb"}[source]
             details = QTextBrowser()
             details.setOpenExternalLinks(False)
             data = state.get("data") or {}

@@ -1,6 +1,6 @@
 """Optional metadata columns and configuration keys; no dependencies."""
 
-SOURCES = ("IGDB", "ProtonDB", "SteamGridDB", "OpenCritic")
+SOURCES = ("IGDB", "ProtonDB", "SteamGridDB", "OpenCritic", "HLTB")
 # Appended columns preserve existing saved column indexes.
 COLUMNS = [
     ("igdb_rating", "IGDB users / 100"),
@@ -33,10 +33,22 @@ COLUMNS = [
     ("oc_url", "OpenCritic page"),
 ]
 for _source in SOURCES:
+    if _source == "HLTB":
+        continue
     COLUMNS += [
         (_source.lower() + "_checked", _source + " last checked"),
         (_source.lower() + "_status", _source + " match status"),
     ]
+# HLTB columns are appended last so existing saved column indexes are unchanged.
+COLUMNS += [
+    ("hltb_main", "HLTB main story (hours)"),
+    ("hltb_main_extra", "HLTB main + extras (hours)"),
+    ("hltb_completionist", "HLTB completionist (hours)"),
+    ("hltb_all_styles", "HLTB all styles (hours)"),
+    ("hltb_url", "HowLongToBeat page"),
+    ("hltb_checked", "HLTB last checked"),
+    ("hltb_status", "HLTB match status"),
+]
 FIELDS = [key for key, _ in COLUMNS]
 NUMERIC = {
     "igdb_rating": 100,
@@ -47,5 +59,9 @@ NUMERIC = {
     "oc_score": 100,
     "oc_recommended": 100,
     "oc_reviews": None,
+    "hltb_main": None,
+    "hltb_main_extra": None,
+    "hltb_completionist": None,
+    "hltb_all_styles": None,
 }
 OPTIONS = {"igdb_client_id", "igdb_client_secret", "sgdb_api_key", "opencritic_api_key"}
